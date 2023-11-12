@@ -111,7 +111,16 @@ def play_motion_alert_sound():
 
 
 
+# Start MQTT client in a separate thread
+def start_mqtt_client():
+    mqtt_client.connect(MQTT_BROKER, MQTT_PORT, 60)
+    mqtt_client.loop_forever()
 
+# start mqtt client
+mqtt_thread = threading.Thread(target=start_mqtt_client)
+mqtt_thread.start()
+
+# Start Flask server
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5000, debug=True)
 
