@@ -31,24 +31,17 @@ MQTT_TOPIC = config['MQTT']['TOPIC']
 # MQTT callbacks
 def on_connect(client, userdata, flags, rc):
     print("Connected with result code " + str(rc))
-    client.subscribe(MQTT_TOPIC)
+    if rc == 0:
+        client.connected_flag = True
+        client.subscribe(MQTT_TOPIC)
+    else:
+        client.connected_flag = False
+
 
 def on_message(client, userdata, msg):
     print(f"Message received: {msg.payload.decode()}")
     play_motion_alert_sound()
 
-    
-def on_disconnect(client, userdata, rc):
-    if rc != 0:
-        print("Unexpected disconnection. Trying to reconnect...")
-        attempt = 1
-        while not client.connected_flag:  # You need to set this flag in on_connect
-            time.sleep(min(2 ** attempt, 60))  # Exponential backoff
-            try:
-                client.reconnect()
-            except:
-                pass
-            attempt += 1
        
 
 # Set up MQTT client
