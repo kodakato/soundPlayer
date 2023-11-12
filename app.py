@@ -3,49 +3,57 @@ import random
 from flask import Flask, jsonify
 from datetime import datetime, timedelta, time as datetime_time
 import time
+import configparser
+import paho.mqtt.client as mqtt
+import threading
 
 app = Flask(__name__)
 
-sound_base_dir = '/home/pi/soundPlayer/'
+sound_base_dir = os.environ['HOME'] + '/soundPlayer/'
 
 activation_threshold = 0.33
+activation_time = timedelta(minutes=10)
 
 last_sound_played_time = None
 last_sound_played_name = None
 
+
+# MQTT broker settings
+config = configparser.ConfigParser()
+config.read('config.ini')
+
+MQTT_BROKER = config['MQTT']['BROKER']
+MQTT_PORT = int(config['MQTT']['PORT'])
+MQTT_USERNAME = config['MQTT']['USERNAME']
+MQTT_PASSWORD = config['MQTT']['PASSWORD']
+MQTT_TOPIC = config['MQTT']['TOPIC']
+
+# MQTT callbacks
+def on_connect(client, userdata, flags, rc):
+    print("Connected with result code " + str(rc))
+    client.subscribe(MQTT_TOPIC)
+
+def on_message(client, userdata, msg):
+    print(f"Message received: {msg.payload.decode()}")
+    play_motion_alert_sound()
+       
+
+# Set up MQTT client
+mqtt_client = mqtt.Client()
+mqtt_client.on_connect = on_connect
+mqtt_client.on_message = on_message
+mqtt_client.username_pw_set(MQTT_USERNAME, MQTT_PASSWORD)
+
+
+# Flask Routes
 @app.route('/sound/funny', methods=['GET'])
 def play_random_funny_sound():
     return play_random_sound_from_directory('funny')
 
 @app.route('/sound/scary', methods=['GET'])
 def play_random_scary_sound():
-    if random.random() < activation_threshold:
-        return play_random_sound_from_directory('scary')
-    else:
-        return jsonify({'message':'Scary sound ran, but not played'}), 200
+    return play_random_sound_from_directory('scary')
 
-@app.route('/sound/knocking', methods=['GET'])
-def play_knocking_sound():
-    if datetime.now().time() < datetime_time(17, 0, 0):  # Use the 'datetime_time' method
-        return jsonify({'message': 'Its before the threshold time, no sound!'})
-    time.sleep(10)
-    global last_sound_played_time
-
-    if last_sound_played_time is None:
-        play_sound("scary/knock2.wav")
-        last_sound_played_time = datetime.now()
-        return jsonify({'success': 'Playing knocking!'})
-
-    current_time = datetime.now()
-    time_elapsed = current_time - last_sound_played_time
-
-    if time_elapsed >= timedelta(minutes=10):
-        play_sound("scary/knock2.wav")
-        last_sound_played_time = current_time
-        return jsonify({'success': 'Playing knocking!'})
-    else:
-        play_sound("scary/giggle.wav")
-        return jsonify({'success': 'Playing giggle!'})
 
 @app.route('/sound', methods=['GET'])
 def play_random_sound_from_any_directory():
@@ -56,11 +64,19 @@ def play_random_sound_from_any_directory():
     else:
         return jsonify({'error': 'No sound directories found'}), 404
 
+
+
+
+
+
+
+# Functions
 def play_sound(sound_path):
     sound_path = os.path.join(sound_base_dir,sound_path)
     os.system(f'aplay {sound_path}')
     global last_sound_played_name
     last_sound_played_name = sound_path
+    last_sound_played_time = time.Now()
 
 
 def play_sound_from_path(sound_path):
@@ -84,6 +100,15 @@ def play_random_sound_from_directory(directory):
             return jsonify({'error': f'No WAV files found in the "{directory}" directory'}), 404
     except Exception as e:
         return jsonify({'error': str(e)}), 500
+
+
+def play_motion_alert_sound():
+    # Play funny sound if last sound played was more than 10 minutes ago
+    if last_sound_played_time is None or datetime.now() - last_sound_played_time > activation_time:
+        play_random_sound_from_directory('funny')
+    else: # play normal sound
+        play_sound_from_path(os.path.join(sound_base_dir, 'alert.wav'))
+
 
 
 
