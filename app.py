@@ -130,7 +130,7 @@ def start_mqtt_client():
     try:
         mqtt_client.connect(MQTT_BROKER, MQTT_PORT, 60)
     except ConnectionRefusedError:
-    print("The broker is not available or refused the connection.")
+        print("The broker is not available or refused the connection.")
     mqtt_client.loop_forever()
 
 # start mqtt client
