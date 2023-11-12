@@ -36,6 +36,19 @@ def on_connect(client, userdata, flags, rc):
 def on_message(client, userdata, msg):
     print(f"Message received: {msg.payload.decode()}")
     play_motion_alert_sound()
+
+    
+def on_disconnect(client, userdata, rc):
+    if rc != 0:
+        print("Unexpected disconnection. Trying to reconnect...")
+        attempt = 1
+        while not client.connected_flag:  # You need to set this flag in on_connect
+            time.sleep(min(2 ** attempt, 60))  # Exponential backoff
+            try:
+                client.reconnect()
+            except:
+                pass
+            attempt += 1
        
 
 # Set up MQTT client
@@ -76,11 +89,12 @@ def play_sound(sound_path):
     os.system(f'aplay {sound_path}')
     global last_sound_played_name
     last_sound_played_name = sound_path
-    last_sound_played_time = time.Now()
+    global last_sound_played_time
+    last_sound_played_time = datetime.now()
 
 
 def play_sound_from_path(sound_path):
-    if os.path.exists():
+    if os.path.exists(sound_path):
         play_sound(sound_path)
     else:
         return jsonify({'error': f'File {sound_path} does not exist!'}), 404
@@ -113,7 +127,10 @@ def play_motion_alert_sound():
 
 # Start MQTT client in a separate thread
 def start_mqtt_client():
+    try:
     mqtt_client.connect(MQTT_BROKER, MQTT_PORT, 60)
+    except ConnectionRefusedError:
+    print("The broker is not available or refused the connection.")
     mqtt_client.loop_forever()
 
 # start mqtt client
