@@ -13,7 +13,7 @@ last_sound_played_name = None
 
 # MQTT Broker Settings
 config = configparser.ConfigParser()
-config.read('config.ini')
+config.read(sound_base_dir + 'config.ini')
 
 MQTT_BROKER = config['MQTT']['BROKER']
 MQTT_PORT = int(config['MQTT']['PORT'])
